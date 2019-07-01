@@ -1,0 +1,22 @@
+device: 'cpu'
+resume_checkpoint: 'None'
+checkpoint_dir: ''
+#------------------------train spec-----------------------
+learning_rate: 0.00025 # small for adam, larger for non momentum sgd variant
+epsilon: 1.0
+epsilon_min: 0.1
+epsilon_reduce: 0.0005
+epsilon_reduce_freq: 500
+memory_size: 500
+train_freq: 10
+batch_size: 100
+discount_rate: 0.97
+update_model_ast_freq: 500
+mode: 'ddqn'
+save_freq: 10
+num_epoch: 100
+#------------------------data spec-------------------------
+data_name: 'Data/Stocks/googl.us.txt'
+start_date: '2010-01-01'
+split_date: '2016-01-01'
+
