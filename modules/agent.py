@@ -55,29 +55,21 @@ def rl_agent_train(model, env, num_epoch, step_max, epsilon, device, memory_size
                         batch_reward = shuffle_reward[i: i+batch_size].type('torch.FloatTensor').to(device)
                         batch_observation = shuffle_observation[i: i+batch_size, :].type('torch.FloatTensor').to(device)
 
-                        q_value = model(batch_state)
+                        q_eval = model(batch_state).gather(1, batch_action.long().unsqueeze(1))
+                        q_next = model_ast(batch_observation).detach()
 
                         if mode == 'dqn':
-                            maxq = torch.Tensor.max(model_ast(batch_observation), dim=1)[1]
-                            mask = torch.zeros(batch_size).view(-1, 1).expand(-1, 3).to(device).scatter_(1, batch_action.type('torch.LongTensor').to(device).view(-1,1), 1)
-                            batch_reward_broadcast = batch_reward.view(-1, 1).expand(-1, 3)
-                            maxq_broadcast = maxq.view(-1, 1).expand(-1, 3)
-                            target = (batch_reward_broadcast + discount_rate  * maxq_broadcast) * mask
+                            q_target = batch_reward + discount_rate * q_next.max(1)[0]
 
                         elif mode == 'ddqn':
-                            batch_action_online = torch.Tensor.argmax(q_value, dim=1)
-                            maxq = model_ast(batch_observation)
-                            action_mask = torch.zeros(batch_size).view(-1, 1).expand(-1, 3).to(device).scatter_(1, batch_action_online.view(-1, 1), 1)
-                            mask = torch.zeros(batch_size).view(-1, 1).expand(-1, 3).to(device).scatter_(1, batch_action.type('torch.LongTensor').to(device).view(-1, 1), 1)
-                            batch_reward_broadcast = batch_reward.view(-1, 1).expand(-1, 3)
-                            maxq_broadcast = torch.Tensor.max(maxq*action_mask, dim=1)[1].view(-1,1).expand(-1, 3).type('torch.FloatTensor').to(device)
-                            target = (batch_reward_broadcast + discount_rate * maxq_broadcast) * mask
+                            q_target = batch_reward + discount_rate * q_next.gather(1, torch.argmax(
+                                model(batch_observation), dim=1, keepdim=True))
 
                         else:
                             raise ValueError('please input correct mode for rl agent, either "dqn", or "ddqn"')
 
-                        model.reset()
-                        loss = criterion(input=q_value, target=target)
+                        optimizer.zero_grad()
+                        loss = criterion(input=q_eval, target=q_target)
                         total_loss += loss.item()
                         loss.backward()
                         optimizer.step()
